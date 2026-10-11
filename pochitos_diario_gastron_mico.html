@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pochitos — Nuestro Diario Gastronómico</title>
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        pochito: {
+                            bg: '#FDFBF7',
+                            card: '#FFFFFF',
+                            primary: '#6A1B29', // Bordó sofisticado
+                            primaryHover: '#53131F',
+                            secondary: '#556B2F', // Verde oliva
+                            terracotta: '#D97757', // Terracotta
+                            gold: '#C5A059', // Dorado discreto
+                            dark: '#2D2D2D', // Negro suave
+                            cream: '#F4EFEA',
+                            border: '#E8E2D5'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'system-ui', '-apple-system', 'sans-serif'],
+                        serif: ['Playfair Display', 'Georgia', 'serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js para Estadísticas -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #FDFBF7; color: #2D2D2D; }
+        h1, h2, h3, .font-serif { font-family: 'Playfair Display', serif; }
+        .star-rating input { display: none; }
+        .star-rating label { color: #D1D5DB; cursor: pointer; transition: color 0.15s ease; }
+        .star-rating label.active, .star-rating label:hover, .star-rating label:hover ~ label { color: #C5A059; }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #FDFBF7; }
+        ::-webkit-scrollbar-thumb { background: #D8CEBE; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #C5A059; }
+    </style>
+</head>
+<body class="h-full flex flex-col antialiased selection:bg-pochito-primary selection:text-white">
+
+    <!-- Modal de Configuración Inicial de Supabase / Credenciales -->
+    <div id="setup-modal" class="fixed inset-0 bg-pochito-dark/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-pochito-card rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-pochito-border">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-2xl font-serif font-bold text-pochito-primary">Conectar Supabase</h3>
+                <button onclick="closeSetupModal()" class="text-gray-400 hover:text-pochito-dark"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <p class="text-sm text-gray-600 mb-6">Para que Lara y vos puedan sincronizar los datos en tiempo real desde cualquier dispositivo, ingresen las credenciales de su proyecto de Supabase. Si aún no las tienen, pueden usar el <strong>Modo Demo local</strong> para probar la app inmediatamente.</p>
+            
+            <form id="setup-form" onsubmit="saveSupabaseConfig(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">Supabase URL</label>
+                    <input type="url" id="supabase-url" placeholder="https://tu-proyecto.supabase.co" class="w-full px-4 py-2.5 rounded-xl border border-pochito-border bg-pochito-bg text-sm focus:ring-2 focus:ring-pochito-primary focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">Supabase Anon Key (Public API Key)</label>
+                    <input type="password" id="supabase-key" placeholder="eyJhbGciOiJIUzI1NiIsInR..." class="w-full px-4 py-2.5 rounded-xl border border-pochito-border bg-pochito-bg text-sm focus:ring-2 focus:ring-pochito-primary focus:outline-none">
+                </div>
+                <div class="pt-2 flex gap-3">
+                    <button type="submit" class="flex-1 bg-pochito-primary text-white font-medium py-2.5 px-4 rounded-xl hover:bg-pochito-primaryHover transition shadow-sm text-sm">Guardar y Conectar</button>
+                    <button type="button" onclick="enableDemoMode()" class="px-4 py-2.5 rounded-xl border border-pochito-primary text-pochito-primary font-medium hover:bg-pochito-cream transition text-sm">Usar Modo Demo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Header Principal -->
+    <header class="bg-pochito-card border-b border-pochito-border sticky top-0 z-30 shadow-xs">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-12 h-12 rounded-2xl bg-pochito-primary text-white flex items-center justify-center shadow-md">
+                    <i class="fa-solid fa-utensils text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-serif font-bold text-pochito-primary tracking-tight">Pochitos</h1>
+                    <p class="text-xs text-gray-500 italic hidden sm:block">Nuestro diario gastronómico compartido 🍷✨</p>
+                </div>
+            </div>
+
+            <!-- Navegación y Acciones Superiores -->
+            <div class="flex items-center space-x-3">
+                <div id="connection-status" class="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                    <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                    <span id="status-text">Modo Demo Local</span>
+                </div>
+                <button onclick="openSetupModal()" class="p-2.5 rounded-xl border border-pochito-border text-gray-600 hover:text-pochito-primary hover:border-pochito-primary transition bg-pochito-bg text-sm" title="Configurar Supabase">
+                    <i class="fa-solid fa-database"></i>
+                </button>
+                <button onclick="switchTab('app')" id="tab-app-btn" class="px-4 py-2 rounded-xl text-sm font-semibold bg-pochito-primary text-white shadow-xs transition">
+                    <i class="fa-solid fa-book-open mr-1.5">></i> Diario
+                </button>
+                <button onclick="switchTab('stats')" id="tab-stats-btn" class="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:text-pochito-primary hover:bg-pochito-cream transition hidden sm:inline-flex">
+                    <i class="fa-solid fa-chart-pie mr-1.5"></i> Estadísticas
+                </button>
+                <button onclick="switchTab('docs')" id="tab-docs-btn" class="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:text-pochito-primary hover:bg-pochito-cream transition">
+                    <i class="fa-solid fa-circle-question mr-1.5"></i> Guía & SQL
+                </button>
+                <button onclick="openModal()" class="bg-pochito-secondary hover:bg-opacity-90 text-white font-medium px-4 py-2.5 rounded-xl shadow-sm transition flex items-center space-x-2 text-sm">
+                    <i class="fa-solid fa-plus"></i>
+                    <span class="hidden md:inline">Nuevo Lugar</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Contenido Principal -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- VISTA DIARIO / APP -->
+        <div id="view-app" class="space-y-8">
+            
+            <!-- Tarjetas de Estadísticas Principales -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <!-- 1. Lugares visitados -->
+                <div class="bg-pochito-card p-5 rounded-2xl border border-pochito-border shadow-xs hover:shadow-md transition">
+                    <div class="flex items-center justify-between text-gray-500 mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider">Lugares Visitados</span>
+                        <div class="w-8 h-8 rounded-lg bg-pochito-cream text-pochito-primary flex items-center justify-center">
+                            <i class="fa-solid fa-store text-sm"></i>
+                        </div>
+                    </div>
+                    <div id="stat-total-places" class="text-2xl sm:text-3xl font-serif font-bold text-pochito-dark">0</div>
+                    <div class="text-xs text-gray-500 mt-1">Registrados en total</div>
+                </div>
+
+                <!-- 2. Promedio general -->
+                <div class="bg-pochito-card p-5 rounded-2xl border border-pochito-border shadow-xs hover:shadow-md transition">
+                    <div class="flex items-center justify-between text-gray-500 mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider">Promedio General</span>
+                        <div class="w-8 h-8 rounded-lg bg-amber-50 text-pochito-gold flex items-center justify-center">
+                            <i class="fa-solid fa-star text-sm"></i>
+                        </div>
+                    </div>
+                    <div id="stat-avg-rating" class="text-2xl sm:text-3xl font-serif font-bold text-pochito-dark">★ 0.0</div>
+                    <div class="text-xs text-gray-500 mt-1">Calificación conjunta</div>
+                </div>
+
+                <!-- 3. Gasto total -->
+                <div class="bg-pochito-card p-5 rounded-2xl border border-pochito-border shadow-xs hover:shadow-md transition">
+                    <div class="flex items-center justify-between text-gray-500 mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider">Gasto Total</span>
+                        <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
+                            <i class="fa-solid fa-wallet text-sm"></i>
+                        </div>
+                    </div>
+                    <div id="stat-total-spent" class="text-xl sm:text-2xl font-serif font-bold text-pochito-dark">$ 0,00</div>
+                    <div class="text-xs text-gray-500 mt-1">Acumulado en salidas</div>
+                </div>
+
+                <!-- 4. Favorito de Pochitos -->
+                <div class="bg-pochito-card p-5 rounded-2xl border border-pochito-border shadow-xs hover:shadow-md transition">
+                    <div class="flex items-center justify-between text-gray-500 mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider">Favorito de Pochitos</span>
+                        <div class="w-8 h-8 rounded-lg bg-rose-50 text-pochito-primary flex items-center justify-center">
+                            <i class="fa-solid fa-heart text-sm"></i>
+                        </div>
+                    </div>
+                    <div id="stat-favorite-place" class="text-base sm:text-lg font-serif font-bold text-pochito-dark truncate" title="Ninguno aún">Ninguno aún</div>
+                    <div id="stat-favorite-score" class="text-xs text-gray-500 mt-1">Sin calificar</div>
+                </div>
+            </div>
+
+            <!-- Barra de Búsqueda, Filtros y Ordenamiento -->
+            <div class="bg-pochito-card p-4 sm:p-5 rounded-2xl border border-pochito-border shadow-xs space-y-4">
+                <div class="flex flex-col md:flex-row gap-3 justify-between items-center">
+                    <!-- Búsqueda -->
+                    <div class="relative w-full md:w-80">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400">
+                            <i class="fa-solid fa-search"></i>
+                        </span>
+                        <input type="text" id="search-input" oninput="filterAndRender()" placeholder="Buscar por nombre, comida o zona..." class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-pochito-border bg-pochito-bg text-sm focus:ring-2 focus:ring-pochito-primary focus:outline-none">
+                    </div>
+
+                    <!-- Filtros y Orden -->
+                    <div class="flex flex-wrap gap-2 w-full md:w-auto items-center justify-end">
+                        <select id="filter-category" onchange="filterAndRender()" class="px-3 py-2.5 rounded-xl border border-pochito-border bg-pochito-bg text-sm text-gray-700 focus:ring-2 focus:ring-pochito-primary focus:outline-none">
+                            <option value="">Todas las categorías</option>
+                            <option value="Restaurante">Restaurante</option>
+                            <option value="Parrilla">Parrilla</option>
+                            <option value="Hamburguesería">Hamburguesería</option>
+                            <option value="Pizzería">Pizzería</option>
+                            <option value="Cafetería">Cafetería</option>
+                            <option value="Bar">Bar</option>
+                            <option value="Heladería">Heladería</option>
+                            <option value="Comida Rápida">Comida Rápida</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+
+                        <select id="sort-by" onchange="filterAndRender()" class="px-3 py-2.5 rounded-xl border border-pochito-border bg-pochito-bg text-sm text-gray-700 focus:ring-2 focus:ring-pochito-primary focus:outline-none">
+                            <option value="recent">Más recientes</option>
+                            <option value="oldest">Más antiguos</option>
+                            <option value="rating-desc">Mayor puntuación</option>
+                            <option value="rating-asc">Menor puntuación</option>
+                            <option value="cost-desc">Mayor gasto total</option>
+                            <option value="cost-asc">Menor gasto total</option>
+                            <option value="alpha-asc">Alfabético (A-Z)</option>
+                            <option value="alpha-desc">Alfabético (Z-A)</option>
+                        </select>
+
+                        <button onclick="resetFilters()" class="px-3 py-2.5 rounded-xl border border-pochito-border text-gray-500 hover:text-pochito-primary hover:bg-pochito-cream text-sm transition" title="Limpiar filtros">
+                            <i class="fa-solid fa-rotate-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cuadrícula de Tarjetas de Restaurantes -->
+            <div id="restaurants-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Se llena dinámicamente mediante JavaScript -->
+            </div>
+
+            <!-- Estado Vacío -->
+            <div id="empty-state" class="hidden text-center py-16 bg-pochito-card rounded-2xl border border-pochito-border p-8">
+                <div class="w-16 h-16 rounded-full bg-pochito-cream text-pochito-primary flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner">
+                    <i class="fa-solid fa-utensils"></i>
+                </div>
+                <h3 class="text-xl font-serif font-bold text-pochito-primary mb-2">Aún no hay lugares registrados</h3>
+                <p class="text-sm text-gray-500 max-w-md mx-auto mb-6">Comiencen a registrar sus salidas gastronómicas para armar su diario compartido en Pochitos.</p>
+                <button onclick="openModal()" class="bg-pochito-primary text-white font-medium px-5 py-2.5 rounded-xl hover:bg-pochito-primaryHover transition shadow-sm text-sm">
+                    <i class="fa-solid fa-plus mr-2"></i>Agregar el primer lugar
+                </button>
+            </div>
+
+        </div>
+
+        <!-- VISTA ESTADÍSTICAS -->
+        <div id="view-stats" class="space-y-8 hidden">
+            <div class="bg-pochito-card p-6 sm:p-8 rounded-2xl border border-pochito-border shadow-xs">
+                <h2 class="text-2xl font-serif font-bold text-pochito-primary mb-2">Análisis y Estadísticas</h2>
+                <p class="text-sm text-gray-500 mb-6">Resumen detallado de las preferencias gastronómicas de Lara y vos.</p>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Gráfico de Gastos por Mes -->
+                    <div class="bg-pochito-bg p-4 rounded-xl border border-pochito-border">
+                        <h3 class="text-sm font-bold text-pochito-dark mb-4"><i class="fa-solid fa-chart-line text-pochito-primary mr-2"></i>Evolución del Gasto Total (ARS)</h3>
+                        <div class="h-64 flex items-center justify-center">
+                            <canvas id="chartGastoMes"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Gráfico de Categorías más visitadas -->
+                    <div class="bg-pochito-bg p-4 rounded-xl border border-pochito-border">
+                        <h3 class="text-sm font-bold text-pochito-dark mb-4"><i class="fa-solid fa-chart-pie text-pochito-primary mr-2"></i>Categorías más Visitadas</h3>
+                        <div class="h-64 flex items-center justify-center">
+                            <canvas id="chartCategorias"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resumen analítico adicional -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+                    <div class="p-4 rounded-xl bg-pochito-cream border border-pochito-border">
+                        <div class="text-xs font-semibold uppercase text-gray-500 mb-1">Promedio Gasto por Persona</div>
+                        <div id="stat-avg-per-person" class="text-xl font-serif font-bold text-pochito-primary">$ 0,00</div>
+                    </div>
+                    <div class="p-4 rounded-xl bg-pochito-cream border border-pochito-border">
+                        <div class="text-xs font-semibold uppercase text-gray-500 mb-1">Restaurante más Económico</div>
+                        <div id="stat-cheapest-place" class="text-lg font-serif font-bold text-pochito-dark truncate">Ninguno</div>
+                    </div>
+                    <div class="p-4 rounded-xl bg-pochito-cream border border-pochito-border">
+                        <div class="text-xs font-semibold uppercase text-gray-500 mb-1">Categoría Favorita</div>
+                        <div id="stat-top-category" class="text-lg font-serif font-bold text-pochito-dark truncate">Ninguna</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VISTA GUÍA Y DOCUMENTACIÓN (Entregables A-G) -->
+        <div id="view-docs" class="space-y-8 hidden">
+            <div class="bg-pochito-card p-6 sm:p-8 rounded-2xl border border-pochito-border shadow-xs prose max-w-none text-gray-700">
+                <h2 class="text-3xl font-serif font-bold text-pochito-primary mb-4">Manual de Implementación y Guía Técnica</h2>
+                <p class="text-base text-gray-600 mb-6">Esta sección detalla la arquitectura, el código SQL, la configuración de sincronización para ambos usuarios y las pruebas de funcionamiento de <strong>Pochitos</strong>.</p>
+
+                <div class="space-y-6 text-sm">
+                    <div class="p-5 bg-pochito-bg rounded-xl border border-pochito-border">
+                        <h3 class="text-lg font-bold text-pochito-primary mb-2">A. Arquitectura Elegida</h3>
+                        <p>Pochitos está construido con una arquitectura <strong>Jamstack moderna</strong> utilizando HTML5 semántico, Tailwind CSS y JavaScript vainilla modular de alto rendimiento. Para la persistencia y sincronización entre Lara y vos sin necesidad de servidores complejos, se integra directamente con <strong>Supabase</strong> (PostgreSQL + Realtime WebSocket), permitiendo que cualquier cambio en un dispositivo se refleje de inmediato en el otro.</p>
+                    </div>
+
+                    <div class="p-5 bg-pochito-bg rounded-xl border border-pochito-border">
+                        <h3 class="text-lg font-bold text-pochito-primary mb-2">B. Esquema de Base de Datos (SQL para Supabase)</h3>
+                        <p class="mb-2">Ejecutá el siguiente script SQL en el panel SQL Editor de tu proyecto en Supabase:</p>
+                        <pre class="bg-pochito-dark text-pochito-cream p-4 rounded-lg overflow-x-auto text-xs font-mono"><code>create table public.restaurants (
+    id uuid default gen_random_uuid() primary key,
+    name text not null,
+    category text not null,
+    address text,
+    maps_url text,
+    visit_date date not null,
+    food_consumed text,
+    comments text,
+    photo_url text,
+    total_cost numeric(12,2) not null default 0,
+    currency text default 'ARS',
+    people_count integer default 2,
+    rating_lara numeric(2,1),
+    rating_me numeric(2,1),
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+    updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Habilitar Row Level Security (RLS)
+alter table public.restaurants enable row level security;
+
+-- Política de acceso abierto para usuarios autenticados o con clave anon permitida
+create policy "Permitir acceso total a Pochitos" on public.restaurants
+    for all using (true) with check (true);
+
+-- Habilitar Realtime para la tabla
+alter publication supabase_realtime add table public.restaurants;</code></pre>
+                    </div>
+
+                    <div class="p-5 bg-pochito-bg rounded-xl border border-pochito-border">
+                        <h3 class="text-lg font-bold text-pochito-primary mb-2">C. Guía de Instalación Local y Publicación Online</h3>
+                        <ol class="list-decimal pl-5 space-y-2">
+                            <li><strong>Crear proyecto en Supabase:</strong> Ir a <a href="https://supabase.com" target="_blank" class="text-pochito-primary underline">supabase.com</a>, crear un proyecto gratuito y ejecutar el script SQL anterior.</li>
+                            <li><strong>Obtener credenciales:</strong> Copiar la <code>Project URL</code> y la <code>anon public key</code> desde las configuraciones del proyecto (API).</li>
+                            <li><strong>Ejecutar localmente:</strong> Guardar el código en un archivo llamado <code>index.html</code>, abrirlo en tu navegador y configurar las credenciales haciendo clic en el ícono de base de datos en la esquina superior derecha.</li>
+                            <li><strong>Publicación en Vercel, Netlify o GitHub Pages:</strong> Subí el archivo <code>index.html</code> a un repositorio de GitHub y conectalo con Netlify o Vercel con un solo clic. ¡Tendrás una URL permanente lista para compartir con Lara!</li>
+                        </ol>
+                    </div>
+
+                    <div class="p-5 bg-pochito-bg rounded-xl border border-pochito-border">
+                        <h3 class="text-lg font-bold text-pochito-primary mb-2">D. Pruebas de Funcionamiento Recomendadas</h3>
+                        <ul class="list-disc pl-5 space-y-1">
+                            <li>✅ Agregar un restaurante con gasto de $ 35.000,00 y verificar el formato argentino.</li>
+                            <li>✅ Calificar con 4.5 estrellas de Lara y 4.0 estrellas propias, comprobando que el promedio se calcule automáticamente como 4,3 estrellas.</li>
+                            <li>✅ Abrir la aplicación desde el celular de Lara (o ventana de incógnito) y verificar la persistencia y actualización en tiempo real.</li>
+                            <li>✅ Probar los filtros por categoría y ordenamientos por gasto y puntuación.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal para Agregar / Editar Restaurante -->
+    <div id="restaurant-modal" class="fixed inset-0 bg-pochito-dark/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden overflow-y-auto">
+        <div class="bg-pochito-card rounded-2xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-pochito-border my-8 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-6">
+                <h3 id="modal-title" class="text-2xl font-serif font-bold text-pochito-primary">Registrar Nueva Salida</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-pochito-dark"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+
+            <form id="restaurant-form" onsubmit="saveRestaurant(event)" class="space-y-5">
+                <input type="hidden" id="resto-id">
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">Nombre del Establecimiento *</label>
+                        <input type="text" id="resto-name" required placeholder="Ej. Don Julio, Café San Juan" class="w-full px-4 py-2.5 rounded-xl border border-pochito-border bg-pochito-bg text-sm focus:ring-2 focus:ring-pochito-primary focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">Tipo de Lugar *</label>
+                        <select id="resto-category" required class="w-full px-4 py-2.5 rounded-xl border border-pochito-border bg-pochito-bg text-sm focus:ring-2 focus:ring-pochito-primary focus:outline-none">
+                            <option value="Restaurante">Restaurante</option>
+                            <option value="Parrilla">Parrilla</option>
+                            <option value="Hamburguesería">Hamburguesería</option>
+                            <option value="Pizzería">Pizzería</option>
+                            <option value="Cafetería">Cafetería</option>
+                            <option value="Bar">Bar</option>
+                            <option value="Heladería">Heladería</option>
+                            <option value="Comida Rápida">Comida Rápida</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">Ubicación / Dirección</label>
+                        <input type="text" id="resto-address" placeholder="Ej. Palermo Soho, CABA" class="w-full px-4 py-2.5 rounded-xl border border-pochito-border bg-pochito-bg text-sm focus:ring-2 focus:ring-pochito-primary focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">Enlace Google Maps</label>
+                        <input type="url" id="resto-maps" placeholder="https://maps.google.com/..." class="w-full px-4 py-2.5 rounded-xl border border-pochito-border bg-pochito-bg text-sm focus:ring-2 focus:ring-pochito-primary focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">Fecha de Visita *</label>
+                        <input type="date" id="resto-date" required class="w-full px-4 py-2.5 rounded-xl border border-pochito-border bg-pochito-bg text-sm focus:ring-2 focus:ring-pochito-primary focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">Gasto Total (ARS) *</label>
+                        <input type="number" step="0.01" id="resto-cost" required placeholder="25000" class="w-full px-4 py-2.5 rounded-xl border border-pochito-border bg-pochito-bg text-sm focus:ring-2 focus:ring-pochito-primary focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">Cantidad de Personas</label>
+                        <input type="number" id="resto-people" value="2" min="1" class="w-full px-4 py-2.5 rounded-xl border border-pochito-border bg-pochito-bg text-sm focus:ring-2 focus:ring-pochito-primary focus:outline-none">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">Comida o Consumición</label>
+                    <input type="text" id="resto-food" placeholder="Ej. Ojo de bife con papas fritas y flan casero" class="w-full px-4 py-2.5 rounded-xl border border-pochito-border bg-pochito-bg text-sm focus:ring-2 focus:ring-pochito-primary focus:outline-none">
+                </div>
+
+                <!-- Puntuaciones Independientes (Lara y Yo) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-pochito-cream border border-pochito-border">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-pochito-primary mb-1">Puntuación de Lara (Estrellas)</label>
+                        <select id="resto-rating-lara" class="w-full px-3 py-2 rounded-xl border border-pochito-border bg-pochito-card text-sm focus:ring-2 focus:ring-pochito-primary focus:outline-none">
+                            <option value="">Sin puntuar</option>
+                            <option value="5.0">★★★★★ (5.0)</option>
+                            <option value="4.5">★★★★½ (4.5)</option>
+                            <option value="4.0">★★★★☆ (4.0)</option>
+                            <option value="3.5">★★★½☆ (3.5)</option>
+                            <option value="3.0">★★★☆☆ (3.0)</option>
+                            <option value="2.5">★★½☆☆ (2.5)</option>
+                            <option value="2.0">★★☆☆☆ (2.0)</option>
+                            <option value="1.5">★½☆☆☆ (1.5)</option>
+                            <option value="1.0">★☆☆☆☆ (1.0)</option>
+                            <option value="0.5">½☆☆☆☆ (0.5)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-pochito-primary mb-1">Mi Puntuación (Estrellas)</label>
+                        <select id="resto-rating-me" class="w-full px-3 py-2 rounded-xl border border-pochito-border bg-pochito-card text-sm focus:ring-2 focus:ring-pochito-primary focus:outline-none">
+                            <option value="">Sin puntuar</option>
+                            <option value="5.0">★★★★★ (5.0)</option>
+                            <option value="4.5">★★★★½ (4.5)</option>
+                            <option value="4.0">★★★★☆ (4.0)</option>
+                            <option value="3.5">★★★½☆ (3.5)</option>
+                            <option value="3.0">★★★☆☆ (3.0)</option>
+                            <option value="2.5">★★½☆☆ (2.5)</option>
+                            <option value="2.0">★★☆☆☆ (2.0)</option>
+                            <option value="1.5">★½☆☆☆ (1.5)</option>
+                            <option value="1.0">★☆☆☆☆ (1.0)</option>
+                            <option value="0.5">½☆☆☆☆ (0.5)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">Comentarios Personales / Notas</label>
+                    <textarea id="resto-comments" rows="3" placeholder="¿Qué nos gustó? ¿Cómo estuvo la atención y el ambiente?" class="w-full px-4 py-2.5 rounded-xl border border-pochito-border bg-pochito-bg text-sm focus:ring-2 focus:ring-pochito-primary focus:outline-none"></textarea>
+                </div>
+
+                <div class="pt-4 flex gap-3 justify-end">
+                    <button type="button" onclick="closeModal()" class="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition text-sm">Cancelar</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-pochito-primary text-white font-medium hover:bg-pochito-primaryHover transition shadow-sm text-sm">Guardar Registro</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de Detalles del Lugar -->
+    <div id="detail-modal" class="fixed inset-0 bg-pochito-dark/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden overflow-y-auto">
+        <div class="bg-pochito-card rounded-2xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-pochito-border my-8 max-h-[90vh] overflow-y-auto">
+            <div id="detail-content" class="space-y-4">
+                <!-- Contenido dinámico de detalles -->
+            </div>
+            <div class="mt-6 pt-4 border-t border-pochito-border flex justify-end gap-3">
+                <button onclick="closeDetailModal()" class="px-5 py-2.5 rounded-xl bg-pochito-primary text-white font-medium hover:bg-pochito-primaryHover transition text-sm">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-pochito-card border-t border-pochito-border py-6 mt-12 text-center text-xs text-gray-500">
+        <p>Pochitos — Creado con amor para Lara y vos 🍷✨</p>
+    </footer>
+
+    <!-- Lógica JavaScript Principal -->
+    <script>
+        // Estado Global
+        let restaurants = [];
+        let supabaseClient = null;
+        let isDemoMode = false;
+        let currentTab = 'app';
+        let chartsInstance = { gasto: null, categorias: null };
+
+        // Inicialización al cargar la página
+        document.addEventListener('DOMContentLoaded', () => {
+            // Fecha por defecto en formulario
+            document.getElementById('resto-date').valueAsDate = new Date();
+            
+            // Cargar configuración de Supabase guardada en localStorage o iniciar demo
+            const savedUrl = localStorage.getItem('pochito_supabase_url');
+            const savedKey = localStorage.getItem('pochito_supabase_key');
+
+            if (savedUrl && savedKey) {
+                initSupabase(savedUrl, savedKey);
+            } else {
+                enableDemoMode();
+            }
+        });
+
+        // Configuración de Supabase
+        function initSupabase(url, key) {
+            try {
+                supabaseClient = supabase.createClient(url, key);
+                isDemoMode = false;
+                document.getElementById('connection-status').className = 'hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200';
+                document.getElementById('status-text').innerText = 'Sincronizado con Supabase';
+                loadRestaurants();
+                setupRealtimeSubscription();
+            } catch (e) {
+                console.error("Error al conectar con Supabase:", e);
+                enableDemoMode();
+            }
+        }
+
+        function saveSupabaseConfig(e) {
+            e.preventDefault();
+            const url = document.getElementById('supabase-url').value.trim();
+            const key = document.getElementById('supabase-key').value.trim();
+            if (url && key) {
+                localStorage.setItem('pochito_supabase_url', url);
+                localStorage.setItem('pochito_supabase_key', key);
+                initSupabase(url, key);
+                closeSetupModal();
+            }
+        }
+
+        function enableDemoMode() {
+            isDemoMode = true;
+            supabaseClient = null;
+            localStorage.removeItem('pochito_supabase_url');
+            localStorage.removeItem('pochito_supabase_key');
+            document.getElementById('connection-status').className = 'hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200';
+            document.getElementById('status-text').innerText = 'Modo Demo Local';
+            
+            // Cargar datos de demo si está vacío
+            const localData = localStorage.getItem('pochito_demo_data');
+            if (localData) {
+                restaurants = JSON.parse(localData);
+            } else {
+                restaurants = [
+                    {
+                        id: 'demo-1',
+                        name: 'Don Julio Parrilla',
+                        category: 'Parrilla',
+                        address: 'Palermo Soho, CABA',
+                        maps_url: 'https://maps.google.com',
+                        visit_date: '2026-03-10',
+                        food_consumed: 'Ojo de bife, papas fritas y malbec',
+                        comments: 'Excelente atención y carne perfecta.',
+                        total_cost: 65000,
+                        people_count: 2,
+                        rating_lara: 5.0,
+                        rating_me: 4.5,
+                        created_at: new Date().toISOString()
+                    },
+                    {
+                        id: 'demo-2',
+                        name: 'Café San Juan',
+                        category: 'Restaurante',
+                        address: 'San Telmo, CABA',
+                        maps_url: 'https://maps.google.com',
+                        visit_date: '2026-03-02',
+                        food_consumed: 'Tapas variadas y postre de chocolate',
+                        comments: 'Ambiente cálido y platos muy abundantes.',
+                        total_cost: 42000,
+                        people_count: 2,
+                        rating_lara: 4.5,
+                        rating_me: 4.0,
+                        created_at: new Date().toISOString()
+                    }
+                ];
+                saveDemoData();
+            }
+            renderApp();
+            closeSetupModal();
+        }
+
+        function saveDemoData() {
+            localStorage.setItem('pochito_demo_data', JSON.stringify(restaurants));
+        }
+
+        // Operaciones de Datos (CRUD)
+        async function loadRestaurants() {
+            if (isDemoMode) {
+                renderApp();
+                return;
+            }
+            try {
+                const { data, error } = await supabaseClient
+                    .from('restaurants')
+                    .select('*')
+                    .order('visit_date', { ascending: false });
+                
+                if (error) throw error;
+                restaurants = data || [];
+                renderApp();
+            } catch (err) {
+                console.error("Error cargando registros:", err);
+                alert("Error al cargar desde Supabase. Verifique las credenciales.");
+            }
+        }
+
+        function setupRealtimeSubscription() {
+            if (isDemoMode || !supabaseClient) return;
+            supabaseClient
+                .channel('public:restaurants')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurants' }, payload => {
+                    loadRestaurants();
+                })
+                .subscribe();
+        }
+
+        async function saveRestaurant(e) {
+            e.preventDefault();
+            const id = document.getElementById('resto-id').value;
+            const data = {
+                name: document.getElementById('resto-name').value.trim(),
+                category: document.getElementById('resto-category').value,
+                address: document.getElementById('resto-address').value.trim(),
+                maps_url: document.getElementById('resto-maps').value.trim(),
+                visit_date: document.getElementById('resto-date').value,
+                food_consumed: document.getElementById('resto-food').value.trim(),
+                comments: document.getElementById('resto-comments').value.trim(),
+                total_cost: parseFloat(document.getElementById('resto-cost').value) || 0,
+                people_count: parseInt(document.getElementById('resto-people').value) || 2,
+                rating_lara: document.getElementById('resto-rating-lara').value ? parseFloat(document.getElementById('resto-rating-lara').value) : null,
+                rating_me: document.getElementById('resto-rating-me').value ? parseFloat(document.getElementById('resto-rating-me').value) : null,
+                updated_at: new Date().toISOString()
+            };
+
+            if (isDemoMode) {
+                if (id) {
+                    const idx = restaurants.findIndex(r => r.id === id);
+                    if (idx !== -1) restaurants[idx] = { ...restaurants[idx], ...data };
+                } else {
+                    data.id = 'demo-' + Date.now();
+                    restaurants.unshift(data);
+                }
+                saveDemoData();
+                closeModal();
+                renderApp();
+                return;
+            }
+
+            try {
+                if (id) {
+                    const { error } = await supabaseClient.from('restaurants').update(data).eq('id', id);
+                    if (error) throw error;
+                } else {
+                    const { error } = await supabaseClient.from('restaurants').insert([data]);
+                    if (error) throw error;
+                }
+                closeModal();
+                loadRestaurants();
+            } catch (err) {
+                console.error("Error al guardar:", err);
+                alert("No se pudo guardar el registro: " + err.message);
+            }
+        }
+
+        async function deleteRestaurant(id) {
+            if (!confirm("¿Estás seguro de eliminar este registro gastronómico?")) return;
+
+            if (isDemoMode) {
+                restaurants = restaurants.filter(r => r.id !== id);
+                saveDemoData();
+                renderApp();
+                return;
+            }
+
+            try {
+                const { error } = await supabaseClient.from('restaurants').delete().eq('id', id);
+                if (error) throw error;
+                loadRestaurants();
+            } catch (err) {
+                console.error("Error al eliminar:", err);
+                alert("No se pudo eliminar el registro.");
+            }
+        }
+
+        // Utilidades de Formato
+        function formatARS(amount) {
+            return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 }).format(amount);
+        }
+
+        function calculateAverage(lara, me) {
+            if (lara !== null && me !== null) return (lara + me) / 2;
+            if (lara !== null) return lara;
+            if (me !== null) return me;
+            return null;
+        }
+
+        function renderStars(avg) {
+            if (avg === null) return '<span class="text-xs text-gray-400 italic">Sin puntuar</span>';
+            const fullStars = Math.floor(avg);
+            const hasHalf = avg % 1 !== 0;
+            let html = '<span class="text-pochito-gold font-bold">';
+            for (let i = 0; i < fullStars; i++) html += '<i class="fa-solid fa-star"></i>';
+            if (hasHalf) html += '<i class="fa-solid fa-star-half-stroke"></i>';
+            html += `</span> <span class="text-xs font-semibold text-gray-700 ml-1">${avg.toFixed(1)}</span>`;
+            return html;
+        }
+
+        // Renderizado y Lógica de Interfaz
+        function renderApp() {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const categoryFilter = document.getElementById('filter-category').value;
+            const sortBy = document.getElementById('sort-by').value;
+
+            // Filtrado
+            let filtered = restaurants.filter(r => {
+                const matchesSearch = r.name.toLowerCase().includes(searchTerm) || 
+                                      (r.food_consumed && r.food_consumed.toLowerCase().includes(searchTerm)) ||
+                                      (r.address && r.address.toLowerCase().includes(searchTerm));
+                const matchesCategory = categoryFilter ? r.category === categoryFilter : true;
+                return matchesSearch && matchesCategory;
+            });
+
+            // Ordenamiento
+            filtered.sort((a, b) => {
+                const avgA = calculateAverage(a.rating_lara, a.rating_me) || 0;
+                const avgB = calculateAverage(b.rating_lara, b.rating_me) || 0;
+                
+                if (sortBy === 'recent') return new Date(b.visit_date) - new Date(a.visit_date);
+                if (sortBy === 'oldest') return new Date(a.visit_date) - new Date(b.visit_date);
+                if (sortBy === 'rating-desc') return avgB - avgA;
+                if (sortBy === 'rating-asc') return avgA - avgB;
+                if (sortBy === 'cost-desc') return b.total_cost - a.total_cost;
+                if (sortBy === 'cost-asc') return a.total_cost - b.total_cost;
+                if (sortBy === 'alpha-asc') return a.name.localeCompare(b.name);
+                if (sortBy === 'alpha-desc') return b.name.localeCompare(a.name);
+                return 0;
+            });
+
+            // Actualizar Estadísticas
+            updateStats();
+
+            // Renderizar Cuadrícula
+            const grid = document.getElementById('restaurants-grid');
+            const emptyState = document.getElementById('empty-state');
+
+            if (filtered.length === 0) {
+                grid.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            grid.innerHTML = filtered.map(r => {
+                const avg = calculateAverage(r.rating_lara, r.rating_me);
+                const costPerPerson = r.people_count ? r.total_cost / r.people_count : r.total_cost;
+                const formattedDate = new Date(r.visit_date + 'T00:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+                return `
+                    <div class="bg-pochito-card rounded-2xl border border-pochito-border shadow-xs hover:shadow-md transition flex flex-col overflow-hidden">
+                        <div class="p-5 flex-1 flex flex-col justify-between space-y-4">
+                            <div>
+                                <div class="flex items-start justify-between gap-2 mb-2">
+                                    <div>
+                                        <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-pochito-cream text-pochito-primary mb-1">${r.category}</span>
+                                        <h3 class="text-xl font-serif font-bold text-pochito-dark">${r.name}</h3>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-sm font-bold text-pochito-primary">${formatARS(r.total_cost)}</div>
+                                        <div class="text-xs text-gray-500">${formatARS(costPerPerson)} / p.</div>
+                                    </div>
+                                </div>
+
+                                <div class="text-xs text-gray-500 flex items-center space-x-3 mb-3">
+                                    <span><i class="fa-regular fa-calendar mr-1"></i>${formattedDate}</span>
+                                    ${r.address ? `<span><i class="fa-solid fa-location-dot mr-1"></i>${r.address}</span>` : ''}
+                                </div>
+
+                                ${r.food_consumed ? `<p class="text-xs text-gray-600 bg-pochito-bg p-2.5 rounded-xl mb-3"><i class="fa-solid fa-utensils text-pochito-secondary mr-1.5"></i>${r.food_consumed}</p>` : ''}
+
+                                <!-- Puntuaciones individuales y promedio -->
+                                <div class="flex items-center justify-between p-3 rounded-xl bg-pochito-cream border border-pochito-border text-xs mb-3">
+                                    <div>
+                                        <div class="font-semibold text-pochito-primary mb-0.5">Promedio</div>
+                                        <div>${renderStars(avg)}</div>
+                                    </div>
+                                    <div class="text-right space-y-0.5 text-gray-600">
+                                        <div>Lara: <span class="font-bold">${r.rating_lara !== null ? r.rating_lara + ' ★' : '-'}</span></div>
+                                        <div>Yo: <span class="font-bold">${r.rating_me !== null ? r.rating_me + ' ★' : '-'}</span></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Botones de Acción -->
+                            <div class="pt-3 border-t border-pochito-border flex items-center justify-between text-xs">
+                                <div class="flex items-center space-x-2">
+                                    ${r.maps_url ? `<a href="${r.maps_url}" target="_blank" class="px-2.5 py-1.5 rounded-lg border border-pochito-border text-gray-600 hover:text-pochito-primary hover:border-pochito-primary transition"><i class="fa-solid fa-map-location-dot mr-1"></i>Maps</a>` : ''}
+                                    <button onclick="openDetailModal('${r.id}')" class="px-2.5 py-1.5 rounded-lg bg-pochito-cream text-pochito-primary font-medium hover:bg-opacity-80 transition"><i class="fa-solid fa-eye mr-1"></i>Detalles</button>
+                                </div>
+                                <div class="flex items-center space-x-1">
+                                    <button onclick="editRestaurant('${r.id}')" class="p-2 text-gray-500 hover:text-pochito-secondary transition" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                                    <button onclick="deleteRestaurant('${r.id}')" class="p-2 text-gray-400 hover:text-red-600 transition" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateStats() {
+            const totalPlaces = restaurants.length;
+            const totalSpent = restaurants.reduce((acc, r) => acc + (parseFloat(r.total_cost) || 0), 0);
+            const avgPerPerson = totalPlaces > 0 ? totalSpent / restaurants.reduce((acc, r) => acc + (parseInt(r.people_count) || 2), 0) : 0;
+            
+            // Promedio general de todas las puntuaciones existentes
+            let allRatings = [];
+            restaurants.forEach(r => {
+                if (r.rating_lara !== null) allRatings.push(r.rating_lara);
+                if (r.rating_me !== null) allRatings.push(r.rating_me);
+            });
+            const generalAvg = allRatings.length > 0 ? allRatings.reduce((a, b) => a + b, 0) / allRatings.length : null;
+
+            // Favorito de Pochitos (mayor promedio)
+            let favorite = null;
+            let maxAvg = -1;
+            restaurants.forEach(r => {
+                const avg = calculateAverage(r.rating_lara, r.rating_me);
+                if (avg !== null && avg > maxAvg) {
+                    maxAvg = avg;
+                    favorite = r;
+                }
+            });
+
+            document.getElementById('stat-total-places').innerText = totalPlaces;
+            document.getElementById('stat-avg-rating').innerText = generalAvg !== null ? `★ ${generalAvg.toFixed(1)}` : '★ 0.0';
+            document.getElementById('stat-total-spent').innerText = formatARS(totalSpent);
+            
+            if (favorite) {
+                document.getElementById('stat-favorite-place').innerText = favorite.name;
+                document.getElementById('stat-favorite-score').innerText = `Promedio: ${maxAvg.toFixed(1)} ★`;
+            } else {
+                document.getElementById('stat-favorite-place').innerText = 'Ninguno aún';
+                document.getElementById('stat-favorite-score').innerText = 'Sin calificar';
+            }
+
+            // Estadísticas adicionales para la pestaña de stats
+            document.getElementById('stat-avg-per-person').innerText = formatARS(avgPerPerson);
+            
+            // Más económico
+            let cheapest = restaurants.length > 0 ? [...restaurants].sort((a, b) => (a.total_cost / (a.people_count || 2)) - (b.total_cost / (b.people_count || 2)))[0] : null;
+            document.getElementById('stat-cheapest-place').innerText = cheapest ? `${cheapest.name} (${formatARS(cheapest.total_cost / (cheapest.people_count || 2))}/p.)` : 'Ninguno';
+
+            // Categoría más visitada
+            let catCounts = {};
+            restaurants.forEach(r => { catCounts[r.category] = (catCounts[r.category] || 0) + 1; });
+            let topCat = Object.keys(catCounts).sort((a,b) => catCounts[b] - catCounts[a])[0];
+            document.getElementById('stat-top-category').innerText = topCat ? `${topCat} (${catCounts[topCat]} visitas)` : 'Ninguna';
+
+            updateCharts();
+        }
+
+        // Gráficos con Chart.js
+        function updateCharts() {
+            // Gasto por mes
+            let monthlyData = {};
+            restaurants.forEach(r => {
+                if (!r.visit_date) return;
+                const monthYear = r.visit_date.substring(0, 7); // YYYY-MM
+                monthlyData[monthYear] = (monthlyData[monthYear] || 0) + (parseFloat(r.total_cost) || 0);
+            });
+
+            const sortedMonths = Object.keys(monthlyData).sort();
+            const monthLabels = sortedMonths.map(m => {
+                const [year, month] = m.split('-');
+                const date = new Date(year, month - 1, 1);
+                return date.toLocaleDateString('es-AR', { month: 'short', year: 'numeric' });
+            });
+            const monthValues = sortedMonths.map(m => monthlyData[m]);
+
+            if (chartsInstance.gasto) chartsInstance.gasto.destroy();
+            const ctxGasto = document.getElementById('chartGastoMes').getContext('2d');
+            chartsInstance.gasto = new Chart(ctxGasto, {
+                type: 'bar',
+                data: {
+                    labels: monthLabels.length > 0 ? monthLabels : ['Sin datos'],
+                    datasets: [{
+                        label: 'Gasto Total (ARS)',
+                        data: monthValues.length > 0 ? monthValues : [0],
+                        backgroundColor: '#6A1B29',
+                        borderRadius: 8
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+
+            // Categorías
+            let catCounts = {};
+            restaurants.forEach(r => { catCounts[r.category] = (catCounts[r.category] || 0) + 1; });
+            const catLabels = Object.keys(catCounts);
+            const catValues = Object.values(catCounts);
+
+            if (chartsInstance.categorias) chartsInstance.categorias.destroy();
+            const ctxCat = document.getElementById('chartCategorias').getContext('2d');
+            chartsInstance.categorias = new Chart(ctxCat, {
+                type: 'doughnut',
+                data: {
+                    labels: catLabels.length > 0 ? catLabels : ['Sin datos'],
+                    datasets: [{
+                        data: catValues.length > 0 ? catValues : [1],
+                        backgroundColor: ['#6A1B29', '#556B2F', '#D97757', '#C5A059', '#2D2D2D', '#A38B74']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        // Modales y Navegación
+        function openModal(id = null) {
+            document.getElementById('restaurant-form').reset();
+            document.getElementById('resto-id').value = '';
+            document.getElementById('resto-date').valueAsDate = new Date();
+            document.getElementById('modal-title').innerText = 'Registrar Nueva Salida';
+
+            if (id) {
+                const r = restaurants.find(item => item.id === id);
+                if (r) {
+                    document.getElementById('modal-title').innerText = 'Editar Registro Gastronómico';
+                    document.getElementById('resto-id').value = r.id;
+                    document.getElementById('resto-name').value = r.name || '';
+                    document.getElementById('resto-category').value = r.category || 'Restaurante';
+                    document.getElementById('resto-address').value = r.address || '';
+                    document.getElementById('resto-maps').value = r.maps_url || '';
+                    document.getElementById('resto-date').value = r.visit_date || '';
+                    document.getElementById('resto-cost').value = r.total_cost || '';
+                    document.getElementById('resto-people').value = r.people_count || 2;
+                    document.getElementById('resto-food').value = r.food_consumed || '';
+                    document.getElementById('resto-comments').value = r.comments || '';
+                    document.getElementById('resto-rating-lara').value = r.rating_lara !== null ? r.rating_lara : '';
+                    document.getElementById('resto-rating-me').value = r.rating_me !== null ? r.rating_me : '';
+                }
+            }
+            document.getElementById('restaurant-modal').classList.remove('hidden');
+        }
+
+        function editRestaurant(id) {
+            openModal(id);
+        }
+
+        function closeModal() {
+            document.getElementById('restaurant-modal').classList.add('hidden');
+        }
+
+        function openDetailModal(id) {
+            const r = restaurants.find(item => item.id === id);
+            if (!r) return;
+
+            const avg = calculateAverage(r.rating_lara, r.rating_me);
+            const costPerPerson = r.people_count ? r.total_cost / r.people_count : r.total_cost;
+            const formattedDate = new Date(r.visit_date + 'T00:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+            document.getElementById('detail-content').innerHTML = `
+                <div>
+                    <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-pochito-cream text-pochito-primary mb-2">${r.category}</span>
+                    <h3 class="text-2xl font-serif font-bold text-pochito-dark mb-1">${r.name}</h3>
+                    ${r.address ? `<p class="text-xs text-gray-500 mb-3"><i class="fa-solid fa-location-dot mr-1"></i>${r.address}</p>` : ''}
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 bg-pochito-bg p-4 rounded-xl border border-pochito-border text-sm">
+                    <div>
+                        <span class="text-xs text-gray-500 block mb-0.5">Fecha de Visita</span>
+                        <span class="font-semibold text-pochito-dark"><i class="fa-regular fa-calendar mr-1"></i>${formattedDate}</span>
+                    </div>
+                    <div>
+                        <span class="text-xs text-gray-500 block mb-0.5">Gasto Total / Persona</span>
+                        <span class="font-semibold text-pochito-primary">${formatARS(r.total_cost)} <span class="text-xs text-gray-500">(${formatARS(costPerPerson)})</span></span>
+                    </div>
+                </div>
+
+                ${r.food_consumed ? `<div><span class="text-xs font-semibold uppercase text-gray-500 block mb-1">Comida / Consumición</span><p class="text-sm bg-pochito-bg p-3 rounded-xl text-gray-700">${r.food_consumed}</p></div>` : ''}
+
+                <div class="p-4 rounded-xl bg-pochito-cream border border-pochito-border flex items-center justify-between">
+                    <div>
+                        <div class="text-xs font-semibold text-pochito-primary uppercase mb-1">Puntuación Promedio</div>
+                        <div>${renderStars(avg)}</div>
+                    </div>
+                    <div class="text-right text-xs space-y-1">
+                        <div>Puntuación de Lara: <span class="font-bold">${r.rating_lara !== null ? r.rating_lara + ' ★' : 'Sin calificar'}</span></div>
+                        <div>Mi Puntuación: <span class="font-bold">${r.rating_me !== null ? r.rating_me + ' ★' : 'Sin calificar'}</span></div>
+                    </div>
+                </div>
+
+                ${r.comments ? `<div><span class="text-xs font-semibold uppercase text-gray-500 block mb-1">Comentarios Personales</span><p class="text-sm bg-pochito-bg p-3 rounded-xl text-gray-700 italic">"${r.comments}"</p></div>` : ''}
+
+                ${r.maps_url ? `<div class="pt-2"><a href="${r.maps_url}" target="_blank" class="inline-flex items-center text-sm font-medium text-pochito-primary hover:underline"><i class="fa-solid fa-map-location-dot mr-2"></i>Abrir ubicación en Google Maps</a></div>` : ''}
+            `;
+            document.getElementById('detail-modal').classList.remove('hidden');
+        }
+
+        function closeDetailModal() {
+            document.getElementById('detail-modal').classList.add('hidden');
+        }
+
+        function openSetupModal() {
+            document.getElementById('setup-modal').classList.remove('hidden');
+        }
+
+        function closeSetupModal() {
+            document.getElementById('setup-modal').classList.add('hidden');
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            document.getElementById('view-app').classList.add('hidden');
+            document.getElementById('view-stats').classList.add('hidden');
+            document.getElementById('view-docs').classList.add('hidden');
+
+            document.getElementById('tab-app-btn').className = 'px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:text-pochito-primary hover:bg-pochito-cream transition';
+            document.getElementById('tab-stats-btn').className = 'px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:text-pochito-primary hover:bg-pochito-cream transition hidden sm:inline-flex';
+            document.getElementById('tab-docs-btn').className = 'px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:text-pochito-primary hover:bg-pochito-cream transition';
+
+            if (tab === 'app') {
+                document.getElementById('view-app').classList.remove('hidden');
+                document.getElementById('tab-app-btn').className = 'px-4 py-2 rounded-xl text-sm font-semibold bg-pochito-primary text-white shadow-xs transition';
+            } else if (tab === 'stats') {
+                document.getElementById('view-stats').classList.remove('hidden');
+                document.getElementById('tab-stats-btn').className = 'px-4 py-2 rounded-xl text-sm font-semibold bg-pochito-primary text-white shadow-xs transition';
+                updateCharts();
+            } else if (tab === 'docs') {
+                document.getElementById('view-docs').classList.remove('hidden');
+                document.getElementById('tab-docs-btn').className = 'px-4 py-2 rounded-xl text-sm font-semibold bg-pochito-primary text-white shadow-xs transition';
+            }
+        }
+
+        function filterAndRender() {
+            renderApp();
+        }
+
+        function resetFilters() {
+            document.getElementById('search-input').value = '';
+            document.getElementById('filter-category').value = '';
+            document.getElementById('sort-by').value = 'recent';
+            renderApp();
+        }
+    </script>
+</body>
+</html>
